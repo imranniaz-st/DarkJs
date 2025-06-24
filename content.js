@@ -1,0 +1,1 @@
+chrome.runtime.sendMessage({ action: 'scan_page' });
