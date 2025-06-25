@@ -5,3 +5,6 @@ Darcase is a Chrome extension that is still under development. The main goal of 
 
 ## How it works ?
 ![External Image] ( https://github.com/imranniaz-st/DarkJs/blob/main/result.png)
+
+## upcomming updated 
+upcomming updated will bring subdomain finding also we will make changes in falespositive in sectionoutof scope domains 
