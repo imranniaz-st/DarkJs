@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DarkJS Dashboard</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap");
+
+    :root {
+      --bg-1: #0f1218;
+      --bg-2: #161b24;
+      --card: #1c212c;
+      --card-2: #232b38;
+      --ink: #f6f1ea;
+      --muted: #b1b8c6;
+      --accent: #ff2d20;
+      --accent-2: #ff9c5b;
+      --stroke: #2e394b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(1000px 600px at 15% 0%, #2a1a1c 0%, var(--bg-1) 45%, var(--bg-2) 100%);
+      min-height: 100vh;
+      padding: 28px 28px 40px 28px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 24px;
+    }
+
+    .title {
+      font-size: 28px;
+      letter-spacing: 1px;
+      margin: 0;
+    }
+
+    .sub {
+      color: var(--muted);
+      margin: 6px 0 0 0;
+      font-size: 13px;
+    }
+
+    .pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(255, 45, 32, 0.16);
+      color: var(--accent);
+      font-size: 12px;
+      border: 1px solid rgba(255, 45, 32, 0.4);
+    }
+
+    .panel {
+      background: linear-gradient(135deg, rgba(22, 39, 58, 0.95), rgba(18, 30, 46, 0.95));
+      border: 1px solid var(--stroke);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      align-items: center;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    select, input, button, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      color: #08231c;
+      font-weight: 600;
+      border: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button.secondary {
+      background: var(--card-2);
+      color: var(--ink);
+      border: 1px solid var(--stroke);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .stat span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .stat strong {
+      font-size: 22px;
+      margin-top: 8px;
+      display: block;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .table th,
+    .table td {
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--stroke);
+      vertical-align: top;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+
+    .table th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 13px;
+      width: 20px;
+    }
+
+    .mono {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid rgba(245, 180, 97, 0.5);
+      color: var(--accent-2);
+      background: rgba(245, 180, 97, 0.12);
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 10px;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .tab-picker {
+      margin-top: 16px;
+      padding: 12px;
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+      background: var(--card-2);
+    }
+
+    .tab-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .tab-list {
+      max-height: 220px;
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    .tab-item {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      padding: 8px;
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      background: var(--card);
+    }
+
+    .tab-item input {
+      width: auto;
+      margin-top: 2px;
+    }
+
+    .tab-meta {
+      display: grid;
+      gap: 4px;
+    }
+
+    .tab-title {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .tab-url {
+      font-size: 11px;
+      color: var(--muted);
+      word-break: break-word;
+    }
+
+    @media (max-width: 1100px) {
+      .controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .settings-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 18px;
+      }
+      .hero {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .stats {
+        grid-template-columns: 1fr;
+      }
+      .settings-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div>
+      <h1 class="title">DarkJS Dashboard</h1>
+      <p class="sub">All tabs findings, endpoint intel, and payload discovery.</p>
+    </div>
+    <div class="pill" id="statusPill">Idle</div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <div>
+        <label for="scopeSelect">Scope</label>
+        <select id="scopeSelect">
+          <option value="all">All Tabs</option>
+          <option value="single">Single Tab</option>
+          <option value="custom">Specific Tabs</option>
+        </select>
+      </div>
+      <div>
+        <label for="tabSelect">Tab</label>
+        <select id="tabSelect" disabled></select>
+      </div>
+      <div>
+        <label for="typeFilter">Type Filter</label>
+        <select id="typeFilter">
+          <option value="all">All</option>
+          <option value="endpoints">Endpoints</option>
+          <option value="payloads">Payloads</option>
+          <option value="storage">Storage</option>
+        </select>
+      </div>
+      <div>
+        <label for="searchInput">Search</label>
+        <input id="searchInput" placeholder="value, source, tab, url" />
+      </div>
+      <div>
+        <label for="dedupeToggle">Dedupe</label>
+        <select id="dedupeToggle">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="rescanBtn">Rescan</button>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="secondary" id="exportCsvBtn">Export CSV</button>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="secondary" id="exportJsonBtn">Export JSON</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><span>Total findings</span><strong id="totalCount">0</strong></div>
+      <div class="stat"><span>Unique endpoints</span><strong id="endpointCount">0</strong></div>
+      <div class="stat"><span>Unique payloads</span><strong id="payloadCount">0</strong></div>
+      <div class="stat"><span>Duplicates filtered</span><strong id="dupeCount">0</strong></div>
+    </div>
+
+    <div class="tab-picker" id="tabPicker" hidden>
+      <div class="tab-actions">
+        <button class="secondary" id="selectAllTabsBtn">Select All</button>
+        <button class="secondary" id="clearAllTabsBtn">Clear All</button>
+      </div>
+      <div class="tab-list" id="tabList"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <div>
+        <label for="enableDom">DOM Scan</label>
+        <select id="enableDom">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label for="enableStorage">Storage Scan</label>
+        <select id="enableStorage">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label for="enableSourceMaps">Source Maps</label>
+        <select id="enableSourceMaps">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label for="enableNetwork">Network Capture</label>
+        <select id="enableNetwork">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label for="enableRuntime">Runtime Hook</label>
+        <select id="enableRuntime">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="secondary" id="saveSettingsBtn">Save Settings</button>
+      </div>
+    </div>
+
+    <div class="settings-grid">
+      <div>
+        <label for="allowlistInput">Allowlist patterns</label>
+        <textarea id="allowlistInput" placeholder="api.example.com, *.service.local"></textarea>
+      </div>
+      <div>
+        <label for="denylistInput">Denylist patterns</label>
+        <textarea id="denylistInput" placeholder="*.ads.example.com, tracker"></textarea>
+      </div>
+      <div>
+        <label>Pattern tips</label>
+        <div class="mono" style="color: var(--muted);">
+          Use * as wildcard. One pattern per line or comma separated.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <table class="table" id="resultsTable">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Value</th>
+          <th>Source</th>
+          <th>Status</th>
+          <th>Tab URL</th>
+          <th>Page</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+    <div class="footer" id="footerNote">Updated just now.</div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
