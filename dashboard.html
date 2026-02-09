@@ -246,6 +246,30 @@
       word-break: break-word;
     }
 
+    .traffic-controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .repeater-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .repeater-output {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     @media (max-width: 1100px) {
       .controls {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -255,6 +279,12 @@
       }
       .settings-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .traffic-controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .repeater-grid {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -273,6 +303,9 @@
       .settings-grid {
         grid-template-columns: 1fr;
       }
+      .traffic-controls {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -283,6 +316,108 @@
       <p class="sub">All tabs findings, endpoint intel, and payload discovery.</p>
     </div>
     <div class="pill" id="statusPill">Idle</div>
+  </div>
+
+  <div class="panel">
+    <div class="traffic-controls">
+      <div>
+        <label for="trafficSearch">Traffic search</label>
+        <input id="trafficSearch" placeholder="url, method, status" />
+      </div>
+      <div>
+        <label for="trafficMethod">Method</label>
+        <select id="trafficMethod">
+          <option value="all">All</option>
+          <option value="GET">GET</option>
+          <option value="POST">POST</option>
+          <option value="PUT">PUT</option>
+          <option value="PATCH">PATCH</option>
+          <option value="DELETE">DELETE</option>
+          <option value="OPTIONS">OPTIONS</option>
+        </select>
+      </div>
+      <div>
+        <label for="trafficStatus">Status</label>
+        <select id="trafficStatus">
+          <option value="all">All</option>
+          <option value="2xx">2xx</option>
+          <option value="3xx">3xx</option>
+          <option value="4xx">4xx</option>
+          <option value="5xx">5xx</option>
+          <option value="error">Error</option>
+        </select>
+      </div>
+      <div>
+        <label for="trafficType">Type</label>
+        <select id="trafficType">
+          <option value="all">All</option>
+          <option value="xmlhttprequest">XHR</option>
+          <option value="fetch">Fetch</option>
+          <option value="script">Script</option>
+          <option value="image">Image</option>
+          <option value="stylesheet">Stylesheet</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+    <table class="table" id="trafficTable">
+      <thead>
+        <tr>
+          <th>Method</th>
+          <th>Status</th>
+          <th>URL</th>
+          <th>Type</th>
+          <th>Duration</th>
+          <th>Body</th>
+        </tr>
+      </thead>
+      <tbody id="trafficBody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="repeater-grid">
+      <div>
+        <label for="repeatMethod">Method</label>
+        <select id="repeatMethod">
+          <option>GET</option>
+          <option>POST</option>
+          <option>PUT</option>
+          <option>PATCH</option>
+          <option>DELETE</option>
+        </select>
+      </div>
+      <div>
+        <label for="repeatUrl">URL</label>
+        <input id="repeatUrl" placeholder="https://example.com/api" />
+      </div>
+      <div>
+        <label for="repeatHeaders">Headers (key: value)</label>
+        <textarea id="repeatHeaders" placeholder="Authorization: Bearer ..."></textarea>
+      </div>
+      <div>
+        <label for="repeatBody">Body</label>
+        <textarea id="repeatBody" placeholder='{"key":"value"}'></textarea>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="repeatSendBtn">Send Request</button>
+      </div>
+    </div>
+    <div class="repeater-output" id="repeatOutput">Awaiting request.</div>
+  </div>
+
+  <div class="panel">
+    <table class="table" id="siteMapTable">
+      <thead>
+        <tr>
+          <th>Host</th>
+          <th>Paths</th>
+          <th>Last Seen</th>
+        </tr>
+      </thead>
+      <tbody id="siteMapBody"></tbody>
+    </table>
   </div>
 
   <div class="panel">

@@ -64,6 +64,8 @@ const API_ENDPOINT_REGEX = /(\/api\/|\/v\d+\/|graphql)/i;
 const MAX_SCRIPT_BYTES = 1500000;
 const MAX_EXTRA_FETCH = 25;
 const MAX_DEPTH = 2;
+const MAX_TRAFFIC = 2000;
+const requestCache = new Map();
 
 let settingsCache = null;
 
@@ -208,6 +210,70 @@ function filterFindings(findings, pageUrl, settings) {
     }
     return isAllowed(value, pageUrl, settings);
   });
+}
+
+function summarizeRequestBody(requestBody) {
+  if (!requestBody) return "";
+  if (requestBody.formData) {
+    const keys = Object.keys(requestBody.formData);
+    return `formData:${keys.slice(0, 10).join(",")}${keys.length > 10 ? ",..." : ""}`;
+  }
+  if (requestBody.raw && requestBody.raw.length) {
+    const total = requestBody.raw.reduce((sum, part) => sum + (part.bytes?.byteLength || 0), 0);
+    return `raw:${total}bytes`;
+  }
+  return "";
+}
+
+function getSensitiveParamKeys(urlString) {
+  try {
+    const url = new URL(urlString);
+    const sensitive = [];
+    url.searchParams.forEach((value, key) => {
+      if (/token|api[_-]?key|secret|auth|password|session/i.test(key)) {
+        sensitive.push(key);
+      }
+    });
+    return sensitive;
+  } catch {
+    return [];
+  }
+}
+
+function addPassiveIssues(urlString, source, findings) {
+  try {
+    const url = new URL(urlString);
+    if (url.protocol === "http:") {
+      findings.push(["Issue", `Insecure URL: ${urlString}`, source]);
+    }
+    const sensitiveKeys = getSensitiveParamKeys(urlString);
+    if (sensitiveKeys.length) {
+      findings.push(["Issue", `Sensitive params: ${sensitiveKeys.join(", ")}`, source]);
+    }
+  } catch {
+    // Ignore invalid URLs
+  }
+}
+
+async function appendTraffic(tabId, entry) {
+  const key = `${STORAGE_PREFIX}${tabId}`;
+  const data = await chrome.storage.session.get(key);
+  const record = data[key] || {
+    tabId,
+    findings: [],
+    traffic: [],
+    pageUrl: "",
+    pageTitle: "",
+    scannedAt: Date.now()
+  };
+
+  record.traffic = record.traffic || [];
+  record.traffic.push(entry);
+  if (record.traffic.length > MAX_TRAFFIC) {
+    record.traffic = record.traffic.slice(-MAX_TRAFFIC);
+  }
+
+  await chrome.storage.session.set({ [key]: record });
 }
 
 async function appendFindings(tabId, newFindings) {
@@ -528,6 +594,7 @@ async function runScanOnTab(tabId) {
     [key]: {
       tabId,
       findings: preserved.concat(filteredFindings),
+      traffic: existing?.traffic || [],
       pageUrl: result.pageUrl || "",
       pageTitle: result.pageTitle || "",
       scannedAt: result.scannedAt || Date.now()
@@ -560,6 +627,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (isApiEndpoint(value)) {
         items.push(["API Endpoint", value, source]);
       }
+      addPassiveIssues(value, source, items);
       appendFindings(sender.tab.id, items);
     });
   }
@@ -587,6 +655,7 @@ chrome.webRequest.onCompleted.addListener(
       if (isApiEndpoint(details.url)) {
         items.push(["API Endpoint", details.url, source]);
       }
+      addPassiveIssues(details.url, source, items);
       appendFindings(details.tabId, items);
     });
   },
@@ -604,8 +673,72 @@ chrome.webRequest.onErrorOccurred.addListener(
       if (isApiEndpoint(details.url)) {
         items.push(["API Endpoint", details.url, source]);
       }
+      addPassiveIssues(details.url, source, items);
       appendFindings(details.tabId, items);
     });
+  },
+  { urls: ["<all_urls>"] }
+);
+
+chrome.webRequest.onBeforeRequest.addListener(
+  details => {
+    if (details.tabId < 0) return;
+    getSettings().then(settings => {
+      if (!settings.enableNetwork) return;
+      if (!isAllowed(details.url, "", settings)) return;
+      requestCache.set(details.requestId, {
+        requestId: details.requestId,
+        tabId: details.tabId,
+        url: details.url,
+        method: details.method,
+        type: details.type,
+        timeStamp: details.timeStamp,
+        body: summarizeRequestBody(details.requestBody)
+      });
+    });
+  },
+  { urls: ["<all_urls>"] },
+  ["requestBody"]
+);
+
+chrome.webRequest.onCompleted.addListener(
+  details => {
+    if (details.tabId < 0) return;
+    const cached = requestCache.get(details.requestId);
+    if (!cached) return;
+    requestCache.delete(details.requestId);
+    const duration = Math.max(0, details.timeStamp - cached.timeStamp);
+    const entry = {
+      url: cached.url,
+      method: cached.method,
+      type: cached.type,
+      status: details.statusCode,
+      duration,
+      body: cached.body,
+      timeStamp: details.timeStamp
+    };
+    appendTraffic(details.tabId, entry);
+  },
+  { urls: ["<all_urls>"] }
+);
+
+chrome.webRequest.onErrorOccurred.addListener(
+  details => {
+    if (details.tabId < 0) return;
+    const cached = requestCache.get(details.requestId);
+    if (!cached) return;
+    requestCache.delete(details.requestId);
+    const duration = Math.max(0, details.timeStamp - cached.timeStamp);
+    const entry = {
+      url: cached.url,
+      method: cached.method,
+      type: cached.type,
+      status: "error",
+      duration,
+      body: cached.body,
+      timeStamp: details.timeStamp
+    };
+    appendTraffic(details.tabId, entry);
   },
   { urls: ["<all_urls>"] }
 );

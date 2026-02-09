@@ -21,6 +21,18 @@ const tabPicker = document.getElementById("tabPicker");
 const tabList = document.getElementById("tabList");
 const selectAllTabsBtn = document.getElementById("selectAllTabsBtn");
 const clearAllTabsBtn = document.getElementById("clearAllTabsBtn");
+const trafficSearch = document.getElementById("trafficSearch");
+const trafficMethod = document.getElementById("trafficMethod");
+const trafficStatus = document.getElementById("trafficStatus");
+const trafficType = document.getElementById("trafficType");
+const trafficBody = document.getElementById("trafficBody");
+const repeatMethod = document.getElementById("repeatMethod");
+const repeatUrl = document.getElementById("repeatUrl");
+const repeatHeaders = document.getElementById("repeatHeaders");
+const repeatBody = document.getElementById("repeatBody");
+const repeatSendBtn = document.getElementById("repeatSendBtn");
+const repeatOutput = document.getElementById("repeatOutput");
+const siteMapBody = document.getElementById("siteMapBody");
 
 const totalCount = document.getElementById("totalCount");
 const endpointCount = document.getElementById("endpointCount");
@@ -32,6 +44,7 @@ let lastRenderedRows = [];
 let selectedTabIds = new Set();
 let latestTabs = [];
 let customInitialized = false;
+let lastTrafficRows = [];
 
 function classify(findings) {
   const endpointSet = new Set();
@@ -88,6 +101,157 @@ function flattenRecords(records, tabLookup) {
     });
   });
   return flattened;
+}
+
+function flattenTraffic(records) {
+  const flattened = [];
+  records.forEach(record => {
+    (record.traffic || []).forEach(entry => {
+      flattened.push({
+        url: entry.url,
+        method: entry.method,
+        status: entry.status,
+        type: entry.type,
+        duration: entry.duration,
+        body: entry.body,
+        timeStamp: entry.timeStamp || record.scannedAt || 0
+      });
+    });
+  });
+  return flattened;
+}
+
+function matchesStatusFilter(statusValue, filter) {
+  if (filter === "all") return true;
+  if (filter === "error") return String(statusValue) === "error";
+  const statusNum = Number(statusValue);
+  if (!Number.isFinite(statusNum)) return false;
+  const prefix = Math.floor(statusNum / 100);
+  return `${prefix}xx` === filter;
+}
+
+function normalizeType(typeValue) {
+  if (!typeValue) return "other";
+  const type = String(typeValue).toLowerCase();
+  const known = ["xmlhttprequest", "fetch", "script", "image", "stylesheet"];
+  return known.includes(type) ? type : "other";
+}
+
+function renderTraffic(rows) {
+  trafficBody.innerHTML = "";
+  lastTrafficRows = rows;
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.className = "mono";
+    td.textContent = "No traffic yet.";
+    tr.appendChild(td);
+    trafficBody.appendChild(tr);
+    return;
+  }
+
+  rows.forEach(item => {
+    const tr = document.createElement("tr");
+
+    const methodCell = document.createElement("td");
+    methodCell.className = "mono";
+    methodCell.textContent = item.method || "";
+
+    const statusCell = document.createElement("td");
+    statusCell.className = "mono";
+    statusCell.textContent = String(item.status || "");
+
+    const urlCell = document.createElement("td");
+    urlCell.className = "mono";
+    urlCell.textContent = item.url || "";
+
+    const typeCell = document.createElement("td");
+    typeCell.className = "mono";
+    typeCell.textContent = normalizeType(item.type);
+
+    const durationCell = document.createElement("td");
+    durationCell.className = "mono";
+    durationCell.textContent = item.duration ? `${Math.round(item.duration)}ms` : "";
+
+    const bodyCell = document.createElement("td");
+    bodyCell.className = "mono";
+    bodyCell.textContent = item.body || "";
+
+    tr.appendChild(methodCell);
+    tr.appendChild(statusCell);
+    tr.appendChild(urlCell);
+    tr.appendChild(typeCell);
+    tr.appendChild(durationCell);
+    tr.appendChild(bodyCell);
+    trafficBody.appendChild(tr);
+  });
+}
+
+function renderSiteMap(rows) {
+  siteMapBody.innerHTML = "";
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 3;
+    td.className = "mono";
+    td.textContent = "No site map data.";
+    tr.appendChild(td);
+    siteMapBody.appendChild(tr);
+    return;
+  }
+
+  rows.forEach(item => {
+    const tr = document.createElement("tr");
+
+    const hostCell = document.createElement("td");
+    hostCell.className = "mono";
+    hostCell.textContent = item.host;
+
+    const pathCell = document.createElement("td");
+    pathCell.className = "mono";
+    pathCell.textContent = String(item.pathCount);
+
+    const timeCell = document.createElement("td");
+    timeCell.className = "mono";
+    timeCell.textContent = item.lastSeen ? new Date(item.lastSeen).toLocaleTimeString() : "";
+
+    tr.appendChild(hostCell);
+    tr.appendChild(pathCell);
+    tr.appendChild(timeCell);
+    siteMapBody.appendChild(tr);
+  });
+}
+
+function buildSiteMap(trafficRows, findingsRows) {
+  const map = new Map();
+
+  const addUrl = (urlString, timeStamp) => {
+    try {
+      const url = new URL(urlString);
+      const host = url.host;
+      if (!host) return;
+      if (!map.has(host)) {
+        map.set(host, { host, paths: new Set(), lastSeen: 0 });
+      }
+      const entry = map.get(host);
+      entry.paths.add(url.pathname || "/");
+      entry.lastSeen = Math.max(entry.lastSeen, timeStamp || 0);
+    } catch {
+      // Ignore invalid URLs
+    }
+  };
+
+  trafficRows.forEach(row => addUrl(row.url, row.timeStamp));
+  findingsRows.forEach(row => {
+    if (row.type === "URL" || row.type === "API Endpoint") {
+      addUrl(row.value, row.scannedAt);
+    }
+  });
+
+  return Array.from(map.values())
+    .map(entry => ({ host: entry.host, pathCount: entry.paths.size, lastSeen: entry.lastSeen }))
+    .sort((a, b) => b.pathCount - a.pathCount);
 }
 
 function deriveStatus(source) {
@@ -291,6 +455,7 @@ async function loadDashboard() {
 
   const records = await getTabRecords(tabIds);
   const flattened = flattenRecords(records, tabLookup);
+  const trafficRows = flattenTraffic(records);
 
   const filter = typeFilter.value;
   const searchTerm = searchInput.value.trim();
@@ -306,6 +471,25 @@ async function loadDashboard() {
   dupeCount.textContent = String(statsWithDupes.dupes);
 
   renderTable(deduped);
+  const filteredTraffic = trafficRows.filter(item => {
+    const methodFilter = trafficMethod.value;
+    if (methodFilter !== "all" && item.method !== methodFilter) return false;
+
+    const typeFilterValue = trafficType.value;
+    if (typeFilterValue !== "all" && normalizeType(item.type) !== typeFilterValue) return false;
+
+    if (!matchesStatusFilter(item.status, trafficStatus.value)) return false;
+
+    const needle = trafficSearch.value.trim().toLowerCase();
+    if (needle) {
+      const hay = `${item.url} ${item.method} ${item.status} ${item.type}`.toLowerCase();
+      if (!hay.includes(needle)) return false;
+    }
+    return true;
+  });
+
+  renderTraffic(filteredTraffic);
+  renderSiteMap(buildSiteMap(trafficRows, deduped));
   footerNote.textContent = `Updated ${new Date().toLocaleTimeString()}.`;
   updateStatus("Ready");
 }
@@ -392,6 +576,10 @@ rescanBtn.addEventListener("click", rescanSelected);
 exportCsvBtn.addEventListener("click", exportCsv);
 exportJsonBtn.addEventListener("click", exportJson);
 saveSettingsBtn.addEventListener("click", saveSettings);
+trafficSearch.addEventListener("input", loadDashboard);
+trafficMethod.addEventListener("change", loadDashboard);
+trafficStatus.addEventListener("change", loadDashboard);
+trafficType.addEventListener("change", loadDashboard);
 selectAllTabsBtn.addEventListener("click", () => {
   selectedTabIds = new Set(latestTabs.map(tab => tab.id).filter(Boolean));
   loadDashboard();
@@ -399,6 +587,46 @@ selectAllTabsBtn.addEventListener("click", () => {
 clearAllTabsBtn.addEventListener("click", () => {
   selectedTabIds.clear();
   loadDashboard();
+});
+
+repeatSendBtn.addEventListener("click", async () => {
+  const url = repeatUrl.value.trim();
+  if (!url) return;
+  repeatOutput.textContent = "Sending...";
+
+  const headers = {};
+  repeatHeaders.value.split("\n").forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    const parts = trimmed.split(":");
+    if (parts.length < 2) return;
+    const key = parts.shift().trim();
+    const value = parts.join(":").trim();
+    if (key) headers[key] = value;
+  });
+
+  const method = repeatMethod.value;
+  const body = repeatBody.value.trim();
+  const init = {
+    method,
+    headers,
+    credentials: "include"
+  };
+
+  if (body && method !== "GET" && method !== "HEAD") {
+    init.body = body;
+  }
+
+  try {
+    const start = performance.now();
+    const response = await fetch(url, init);
+    const duration = Math.round(performance.now() - start);
+    const text = await response.text();
+    const preview = text.length > 2000 ? `${text.slice(0, 2000)}...` : text;
+    repeatOutput.textContent = `Status: ${response.status}\nTime: ${duration}ms\n\n${preview}`;
+  } catch (error) {
+    repeatOutput.textContent = `Error: ${error.message}`;
+  }
 });
 
 loadSettings().then(loadDashboard);
