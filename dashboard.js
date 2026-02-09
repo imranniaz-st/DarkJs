@@ -9,6 +9,18 @@ const rescanBtn = document.getElementById("rescanBtn");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
 const exportJsonBtn = document.getElementById("exportJsonBtn");
 const statusPill = document.getElementById("statusPill");
+const enableDom = document.getElementById("enableDom");
+const enableStorage = document.getElementById("enableStorage");
+const enableSourceMaps = document.getElementById("enableSourceMaps");
+const enableNetwork = document.getElementById("enableNetwork");
+const enableRuntime = document.getElementById("enableRuntime");
+const allowlistInput = document.getElementById("allowlistInput");
+const denylistInput = document.getElementById("denylistInput");
+const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+const tabPicker = document.getElementById("tabPicker");
+const tabList = document.getElementById("tabList");
+const selectAllTabsBtn = document.getElementById("selectAllTabsBtn");
+const clearAllTabsBtn = document.getElementById("clearAllTabsBtn");
 
 const totalCount = document.getElementById("totalCount");
 const endpointCount = document.getElementById("endpointCount");
@@ -16,6 +28,10 @@ const payloadCount = document.getElementById("payloadCount");
 const dupeCount = document.getElementById("dupeCount");
 const resultsBody = document.getElementById("resultsBody");
 const footerNote = document.getElementById("footerNote");
+let lastRenderedRows = [];
+let selectedTabIds = new Set();
+let latestTabs = [];
+let customInitialized = false;
 
 function classify(findings) {
   const endpointSet = new Set();
@@ -25,7 +41,7 @@ function classify(findings) {
   findings.forEach(item => {
     const key = `${item.type}::${item.value}`;
     allSet.add(key);
-    if (item.type === "Route" || item.type === "URL") {
+    if (item.type === "Route" || item.type === "URL" || item.type === "API Endpoint") {
       endpointSet.add(item.value);
     }
     if (item.type === "API Key or Secret") {
@@ -55,7 +71,9 @@ async function getTabRecords(tabIds) {
 function flattenRecords(records, tabLookup) {
   const flattened = [];
   records.forEach(record => {
-    const tabTitle = tabLookup.get(record.tabId) || record.pageTitle || "Untitled";
+    const tabMeta = tabLookup.get(record.tabId) || {};
+    const tabTitle = tabMeta.title || record.pageTitle || "Untitled";
+    const tabUrl = tabMeta.url || record.pageUrl || "";
     (record.findings || []).forEach(([type, value, source]) => {
       flattened.push({
         type,
@@ -63,6 +81,7 @@ function flattenRecords(records, tabLookup) {
         source,
         tabId: record.tabId,
         tabTitle,
+        tabUrl,
         pageUrl: record.pageUrl || "",
         scannedAt: record.scannedAt || 0
       });
@@ -71,13 +90,27 @@ function flattenRecords(records, tabLookup) {
   return flattened;
 }
 
+function deriveStatus(source) {
+  if (!source) return "";
+  if (source.startsWith("network:")) {
+    return source.replace("network:", "");
+  }
+  if (source.startsWith("runtime:")) {
+    const parts = source.split(":");
+    return parts[2] || "";
+  }
+  return "";
+}
+
 function applyFilters(findings, filter, searchTerm, dedupe) {
   let filtered = findings;
 
   if (filter === "endpoints") {
-    filtered = filtered.filter(item => item.type === "Route" || item.type === "URL");
+    filtered = filtered.filter(item => item.type === "Route" || item.type === "URL" || item.type === "API Endpoint");
   } else if (filter === "payloads") {
     filtered = filtered.filter(item => item.type === "API Key or Secret");
+  } else if (filter === "storage") {
+    filtered = filtered.filter(item => item.type === "Storage Item");
   }
 
   if (searchTerm) {
@@ -108,10 +141,11 @@ function applyFilters(findings, filter, searchTerm, dedupe) {
 
 function renderTable(rows) {
   resultsBody.innerHTML = "";
+  lastRenderedRows = rows;
   if (!rows.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 5;
+    td.colSpan = 6;
     td.className = "mono";
     td.textContent = "No findings.";
     tr.appendChild(td);
@@ -135,8 +169,14 @@ function renderTable(rows) {
     sourceCell.className = "mono";
     sourceCell.textContent = item.source;
 
+    const statusCell = document.createElement("td");
+    statusCell.className = "mono";
+    statusCell.textContent = deriveStatus(item.source);
+
     const tabCell = document.createElement("td");
-    tabCell.textContent = item.tabTitle;
+    tabCell.className = "mono";
+    tabCell.textContent = item.tabUrl || item.tabTitle;
+    tabCell.title = item.tabTitle;
 
     const pageCell = document.createElement("td");
     pageCell.className = "mono";
@@ -145,6 +185,7 @@ function renderTable(rows) {
     tr.appendChild(typeCell);
     tr.appendChild(valueCell);
     tr.appendChild(sourceCell);
+    tr.appendChild(statusCell);
     tr.appendChild(tabCell);
     tr.appendChild(pageCell);
     resultsBody.appendChild(tr);
@@ -155,11 +196,48 @@ function updateStatus(text) {
   statusPill.textContent = text;
 }
 
+function parsePatterns(value) {
+  return value
+    .split(/\n|,/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+async function loadSettings() {
+  const data = await chrome.storage.local.get("settings");
+  const settings = data.settings || {};
+
+  enableDom.value = settings.enableDom === false ? "off" : "on";
+  enableStorage.value = settings.enableStorage === false ? "off" : "on";
+  enableSourceMaps.value = settings.enableSourceMaps === false ? "off" : "on";
+  enableNetwork.value = settings.enableNetwork === false ? "off" : "on";
+  enableRuntime.value = settings.enableRuntime === false ? "off" : "on";
+
+  allowlistInput.value = (settings.allowlist || []).join("\n");
+  denylistInput.value = (settings.denylist || []).join("\n");
+}
+
+async function saveSettings() {
+  updateStatus("Saving");
+  const settings = {
+    enableDom: enableDom.value === "on",
+    enableStorage: enableStorage.value === "on",
+    enableSourceMaps: enableSourceMaps.value === "on",
+    enableNetwork: enableNetwork.value === "on",
+    enableRuntime: enableRuntime.value === "on",
+    allowlist: parsePatterns(allowlistInput.value),
+    denylist: parsePatterns(denylistInput.value)
+  };
+
+  await chrome.storage.local.set({ settings });
+  updateStatus("Saved");
+}
+
 function buildCsv(rows) {
-  let csv = "Type,Value,Source,Tab,PageUrl,ScannedAt\n";
+  let csv = "Type,Value,Source,Status,TabUrl,PageUrl,ScannedAt\n";
   rows.forEach(item => {
     const safe = value => String(value).replace(/"/g, '""');
-    csv += `"${safe(item.type)}","${safe(item.value)}","${safe(item.source)}","${safe(item.tabTitle)}","${safe(item.pageUrl)}","${safe(item.scannedAt)}"\n`;
+    csv += `"${safe(item.type)}","${safe(item.value)}","${safe(item.source)}","${safe(deriveStatus(item.source))}","${safe(item.tabUrl)}","${safe(item.pageUrl)}","${safe(item.scannedAt)}"\n`;
   });
   return csv;
 }
@@ -178,23 +256,38 @@ function downloadBlob(blob, filename) {
 async function loadDashboard() {
   updateStatus("Loading");
   const tabs = await chrome.tabs.query({});
-  const tabLookup = new Map(tabs.map(tab => [tab.id, tab.title || "Untitled"]));
+  latestTabs = tabs;
+  const tabLookup = new Map(tabs.map(tab => [tab.id, { title: tab.title || "Untitled", url: tab.url || "" }]));
 
   tabSelect.innerHTML = "";
   tabs.forEach(tab => {
     const option = document.createElement("option");
     option.value = String(tab.id);
-    option.textContent = `${tab.title || "Untitled"}`;
+    option.textContent = tab.url || tab.title || "Untitled";
+    option.title = tab.title || "Untitled";
     tabSelect.appendChild(option);
   });
 
   const scope = scopeSelect.value;
   tabSelect.disabled = scope !== "single";
   rescanBtn.disabled = scope !== "single";
+  tabPicker.hidden = scope !== "custom";
 
-  const tabIds = scope === "single"
-    ? [Number(tabSelect.value || tabs[0]?.id)]
-    : tabs.map(tab => tab.id).filter(Boolean);
+  if (scope === "custom" && !customInitialized) {
+    selectedTabIds = new Set(tabs.map(tab => tab.id).filter(Boolean));
+    customInitialized = true;
+  }
+
+  renderTabPicker(tabs);
+
+  let tabIds = [];
+  if (scope === "single") {
+    tabIds = [Number(tabSelect.value || tabs[0]?.id)];
+  } else if (scope === "custom") {
+    tabIds = Array.from(selectedTabIds);
+  } else {
+    tabIds = tabs.map(tab => tab.id).filter(Boolean);
+  }
 
   const records = await getTabRecords(tabIds);
   const flattened = flattenRecords(records, tabLookup);
@@ -217,6 +310,58 @@ async function loadDashboard() {
   updateStatus("Ready");
 }
 
+function renderTabPicker(tabs) {
+  if (!tabList) return;
+  const currentIds = new Set(tabs.map(tab => tab.id));
+  selectedTabIds.forEach(id => {
+    if (!currentIds.has(id)) selectedTabIds.delete(id);
+  });
+
+  tabList.innerHTML = "";
+  if (!tabs.length) {
+    const empty = document.createElement("div");
+    empty.className = "mono";
+    empty.textContent = "No tabs found.";
+    tabList.appendChild(empty);
+    return;
+  }
+
+  tabs.forEach(tab => {
+    const row = document.createElement("label");
+    row.className = "tab-item";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = selectedTabIds.has(tab.id);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        selectedTabIds.add(tab.id);
+      } else {
+        selectedTabIds.delete(tab.id);
+      }
+      loadDashboard();
+    });
+
+    const meta = document.createElement("div");
+    meta.className = "tab-meta";
+
+    const title = document.createElement("div");
+    title.className = "tab-title";
+    title.textContent = tab.title || "Untitled";
+
+    const url = document.createElement("div");
+    url.className = "tab-url";
+    url.textContent = tab.url || "";
+
+    meta.appendChild(title);
+    meta.appendChild(url);
+
+    row.appendChild(checkbox);
+    row.appendChild(meta);
+    tabList.appendChild(row);
+  });
+}
+
 async function rescanSelected() {
   const scope = scopeSelect.value;
   if (scope !== "single") return;
@@ -228,31 +373,14 @@ async function rescanSelected() {
 }
 
 async function exportCsv() {
-  const rows = collectExportRows();
+  const rows = lastRenderedRows;
   const csv = buildCsv(rows);
   downloadBlob(new Blob([csv], { type: "text/csv" }), "darkjs_dashboard.csv");
 }
 
 async function exportJson() {
-  const rows = collectExportRows();
+  const rows = lastRenderedRows;
   downloadBlob(new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" }), "darkjs_dashboard.json");
-}
-
-function collectExportRows() {
-  const rows = [];
-  const tableRows = resultsBody.querySelectorAll("tr");
-  tableRows.forEach(tr => {
-    const cells = tr.querySelectorAll("td");
-    if (cells.length < 5) return;
-    rows.push({
-      type: cells[0].innerText.trim(),
-      value: cells[1].innerText.trim(),
-      source: cells[2].innerText.trim(),
-      tab: cells[3].innerText.trim(),
-      pageUrl: cells[4].innerText.trim()
-    });
-  });
-  return rows;
 }
 
 scopeSelect.addEventListener("change", loadDashboard);
@@ -263,5 +391,14 @@ tabSelect.addEventListener("change", loadDashboard);
 rescanBtn.addEventListener("click", rescanSelected);
 exportCsvBtn.addEventListener("click", exportCsv);
 exportJsonBtn.addEventListener("click", exportJson);
+saveSettingsBtn.addEventListener("click", saveSettings);
+selectAllTabsBtn.addEventListener("click", () => {
+  selectedTabIds = new Set(latestTabs.map(tab => tab.id).filter(Boolean));
+  loadDashboard();
+});
+clearAllTabsBtn.addEventListener("click", () => {
+  selectedTabIds.clear();
+  loadDashboard();
+});
 
-loadDashboard();
+loadSettings().then(loadDashboard);

@@ -6,15 +6,15 @@
     @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap");
 
     :root {
-      --bg-1: #0a1019;
-      --bg-2: #0e1b2a;
-      --card: #121e2e;
-      --card-2: #16273a;
-      --ink: #f4f1e9;
-      --muted: #a9b4c8;
-      --accent: #38c2a6;
-      --accent-2: #f5b461;
-      --stroke: #26344a;
+      --bg-1: #0f1218;
+      --bg-2: #161b24;
+      --card: #1c212c;
+      --card-2: #232b38;
+      --ink: #f6f1ea;
+      --muted: #b1b8c6;
+      --accent: #ff2d20;
+      --accent-2: #ff9c5b;
+      --stroke: #2e394b;
     }
 
     * {
@@ -25,7 +25,7 @@
       margin: 0;
       font-family: "Space Grotesk", "Segoe UI", sans-serif;
       color: var(--ink);
-      background: radial-gradient(1200px 600px at 10% 0%, #132338 0%, var(--bg-1) 40%, var(--bg-2) 100%);
+      background: radial-gradient(1000px 600px at 15% 0%, #2a1a1c 0%, var(--bg-1) 45%, var(--bg-2) 100%);
       min-height: 100vh;
       padding: 28px 28px 40px 28px;
     }
@@ -52,10 +52,10 @@
     .pill {
       padding: 6px 12px;
       border-radius: 999px;
-      background: rgba(56, 194, 166, 0.16);
+      background: rgba(255, 45, 32, 0.16);
       color: var(--accent);
       font-size: 12px;
-      border: 1px solid rgba(56, 194, 166, 0.4);
+      border: 1px solid rgba(255, 45, 32, 0.4);
     }
 
     .panel {
@@ -81,7 +81,7 @@
       margin-bottom: 6px;
     }
 
-    select, input, button {
+    select, input, button, textarea {
       width: 100%;
       padding: 10px 12px;
       background: var(--card);
@@ -89,6 +89,11 @@
       border-radius: 10px;
       color: var(--ink);
       font-size: 13px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
     }
 
     button {
@@ -146,15 +151,18 @@
     .table th,
     .table td {
       text-align: left;
-      padding: 10px;
+      padding: 14px 16px;
       border-bottom: 1px solid var(--stroke);
       vertical-align: top;
+      word-break: break-word;
+      line-height: 1.4;
     }
 
     .table th {
       color: var(--muted);
       font-weight: 600;
-      font-size: 12px;
+      font-size: 13px;
+      width: 20px;
     }
 
     .mono {
@@ -179,11 +187,73 @@
       margin-top: 10px;
     }
 
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .tab-picker {
+      margin-top: 16px;
+      padding: 12px;
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+      background: var(--card-2);
+    }
+
+    .tab-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .tab-list {
+      max-height: 220px;
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    .tab-item {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      padding: 8px;
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      background: var(--card);
+    }
+
+    .tab-item input {
+      width: auto;
+      margin-top: 2px;
+    }
+
+    .tab-meta {
+      display: grid;
+      gap: 4px;
+    }
+
+    .tab-title {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .tab-url {
+      font-size: 11px;
+      color: var(--muted);
+      word-break: break-word;
+    }
+
     @media (max-width: 1100px) {
       .controls {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .settings-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
@@ -198,6 +268,9 @@
         gap: 12px;
       }
       .stats {
+        grid-template-columns: 1fr;
+      }
+      .settings-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -219,6 +292,7 @@
         <select id="scopeSelect">
           <option value="all">All Tabs</option>
           <option value="single">Single Tab</option>
+          <option value="custom">Specific Tabs</option>
         </select>
       </div>
       <div>
@@ -231,6 +305,7 @@
           <option value="all">All</option>
           <option value="endpoints">Endpoints</option>
           <option value="payloads">Payloads</option>
+          <option value="storage">Storage</option>
         </select>
       </div>
       <div>
@@ -264,6 +339,75 @@
       <div class="stat"><span>Unique payloads</span><strong id="payloadCount">0</strong></div>
       <div class="stat"><span>Duplicates filtered</span><strong id="dupeCount">0</strong></div>
     </div>
+
+    <div class="tab-picker" id="tabPicker" hidden>
+      <div class="tab-actions">
+        <button class="secondary" id="selectAllTabsBtn">Select All</button>
+        <button class="secondary" id="clearAllTabsBtn">Clear All</button>
+      </div>
+      <div class="tab-list" id="tabList"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <div>
+        <label for="enableDom">DOM Scan</label>
+        <select id="enableDom">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label for="enableStorage">Storage Scan</label>
+        <select id="enableStorage">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label for="enableSourceMaps">Source Maps</label>
+        <select id="enableSourceMaps">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label for="enableNetwork">Network Capture</label>
+        <select id="enableNetwork">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label for="enableRuntime">Runtime Hook</label>
+        <select id="enableRuntime">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="secondary" id="saveSettingsBtn">Save Settings</button>
+      </div>
+    </div>
+
+    <div class="settings-grid">
+      <div>
+        <label for="allowlistInput">Allowlist patterns</label>
+        <textarea id="allowlistInput" placeholder="api.example.com, *.service.local"></textarea>
+      </div>
+      <div>
+        <label for="denylistInput">Denylist patterns</label>
+        <textarea id="denylistInput" placeholder="*.ads.example.com, tracker"></textarea>
+      </div>
+      <div>
+        <label>Pattern tips</label>
+        <div class="mono" style="color: var(--muted);">
+          Use * as wildcard. One pattern per line or comma separated.
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="panel">
@@ -273,7 +417,8 @@
           <th>Type</th>
           <th>Value</th>
           <th>Source</th>
-          <th>Tab</th>
+          <th>Status</th>
+          <th>Tab URL</th>
           <th>Page</th>
         </tr>
       </thead>

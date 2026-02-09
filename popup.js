@@ -8,7 +8,7 @@ function classify(findings) {
   findings.forEach(([type, value]) => {
     const key = `${type}::${value}`;
     allSet.add(key);
-    if (type === "Route" || type === "URL") {
+    if (type === "Route" || type === "URL" || type === "API Endpoint") {
       endpointSet.add(value);
     }
     if (type === "API Key or Secret") {

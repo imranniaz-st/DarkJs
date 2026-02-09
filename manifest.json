@@ -3,7 +3,7 @@
   "name": "DarkTs",
   "version": "1.0",
   "description": "Scan JS files for URLs, routes, and secrets Desing and Develop by imran niaz info.iosnapk@gamil.com",
-  "permissions": ["scripting", "activeTab", "tabs", "storage"],
+  "permissions": ["scripting", "activeTab", "tabs", "storage", "webRequest"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",
