@@ -60,6 +60,7 @@ async function runScanOnTab(tabId) {
       return {
         findings,
         pageUrl: location.href,
+        pageTitle: document.title,
         scannedAt: Date.now()
       };
     }
@@ -71,6 +72,7 @@ async function runScanOnTab(tabId) {
       tabId,
       findings: result.findings || [],
       pageUrl: result.pageUrl || "",
+      pageTitle: result.pageTitle || "",
       scannedAt: result.scannedAt || Date.now()
     }
   });

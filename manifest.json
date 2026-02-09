@@ -9,6 +9,9 @@
     "default_popup": "popup.html",
     "default_icon": "icon.png"
   },
+  "chrome_url_overrides": {
+    "newtab": "dashboard.html"
+  },
   "background": {
     "service_worker": "background.js"
   },

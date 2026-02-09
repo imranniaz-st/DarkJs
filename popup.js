@@ -82,6 +82,76 @@ async function loadStats(scope) {
   noteEl.textContent = "Duplicates are filtered per tab in Current Tab view.";
 }
 
+async function getFindingsForScope(scope) {
+  if (scope === "all") {
+    const tabs = await chrome.tabs.query({});
+    const tabIds = tabs.map(tab => tab.id).filter(Boolean);
+    const records = await getTabData(tabIds);
+    return records.flatMap(record => record.findings || []);
+  }
+
+  const tabId = await getCurrentTabId();
+  if (!tabId) return [];
+  const [record] = await getTabData([tabId]);
+  return record?.findings || [];
+}
+
+function dedupeFindings(findings) {
+  const seen = new Set();
+  return findings.filter(([type, value]) => {
+    const key = `${type}::${value}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function buildCsv(findings) {
+  let csv = "Type,Value,Source\n";
+  findings.forEach(([type, value, source]) => {
+    const safeType = String(type).replace(/"/g, '""');
+    const safeValue = String(value).replace(/"/g, '""');
+    const safeSource = String(source).replace(/"/g, '""');
+    csv += `"${safeType}","${safeValue}","${safeSource}"\n`;
+  });
+  return csv;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function exportCsv() {
+  const scope = document.getElementById("scopeSelect").value;
+  const findings = dedupeFindings(await getFindingsForScope(scope));
+  const csv = buildCsv(findings);
+  const blob = new Blob([csv], { type: "text/csv" });
+  downloadBlob(blob, `darkjs_${scope}_findings.csv`);
+}
+
+async function exportJson() {
+  const scope = document.getElementById("scopeSelect").value;
+  const findings = dedupeFindings(await getFindingsForScope(scope));
+  const payload = findings.map(([type, value, source]) => ({
+    type,
+    value,
+    source
+  }));
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  downloadBlob(blob, `darkjs_${scope}_findings.json`);
+}
+
+function openDashboard() {
+  chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
+}
+
 async function rescanCurrentTab() {
   const tabId = await getCurrentTabId();
   if (!tabId) return;
@@ -92,9 +162,15 @@ async function rescanCurrentTab() {
 document.addEventListener("DOMContentLoaded", () => {
   const scopeSelect = document.getElementById("scopeSelect");
   const rescanBtn = document.getElementById("rescanBtn");
+  const exportCsvBtn = document.getElementById("exportCsvBtn");
+  const exportJsonBtn = document.getElementById("exportJsonBtn");
+  const openDashboardBtn = document.getElementById("openDashboardBtn");
 
   scopeSelect.addEventListener("change", () => loadStats(scopeSelect.value));
   rescanBtn.addEventListener("click", rescanCurrentTab);
+  exportCsvBtn.addEventListener("click", exportCsv);
+  exportJsonBtn.addEventListener("click", exportJson);
+  openDashboardBtn.addEventListener("click", openDashboard);
 
   loadStats(scopeSelect.value);
 });

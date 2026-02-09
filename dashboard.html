@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DarkJS Dashboard</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap");
+
+    :root {
+      --bg-1: #0a1019;
+      --bg-2: #0e1b2a;
+      --card: #121e2e;
+      --card-2: #16273a;
+      --ink: #f4f1e9;
+      --muted: #a9b4c8;
+      --accent: #38c2a6;
+      --accent-2: #f5b461;
+      --stroke: #26344a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(1200px 600px at 10% 0%, #132338 0%, var(--bg-1) 40%, var(--bg-2) 100%);
+      min-height: 100vh;
+      padding: 28px 28px 40px 28px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 24px;
+    }
+
+    .title {
+      font-size: 28px;
+      letter-spacing: 1px;
+      margin: 0;
+    }
+
+    .sub {
+      color: var(--muted);
+      margin: 6px 0 0 0;
+      font-size: 13px;
+    }
+
+    .pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(56, 194, 166, 0.16);
+      color: var(--accent);
+      font-size: 12px;
+      border: 1px solid rgba(56, 194, 166, 0.4);
+    }
+
+    .panel {
+      background: linear-gradient(135deg, rgba(22, 39, 58, 0.95), rgba(18, 30, 46, 0.95));
+      border: 1px solid var(--stroke);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      align-items: center;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    select, input, button {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      color: #08231c;
+      font-weight: 600;
+      border: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button.secondary {
+      background: var(--card-2);
+      color: var(--ink);
+      border: 1px solid var(--stroke);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .stat span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .stat strong {
+      font-size: 22px;
+      margin-top: 8px;
+      display: block;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .table th,
+    .table td {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid var(--stroke);
+      vertical-align: top;
+    }
+
+    .table th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .mono {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid rgba(245, 180, 97, 0.5);
+      color: var(--accent-2);
+      background: rgba(245, 180, 97, 0.12);
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 1100px) {
+      .controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 18px;
+      }
+      .hero {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div>
+      <h1 class="title">DarkJS Dashboard</h1>
+      <p class="sub">All tabs findings, endpoint intel, and payload discovery.</p>
+    </div>
+    <div class="pill" id="statusPill">Idle</div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <div>
+        <label for="scopeSelect">Scope</label>
+        <select id="scopeSelect">
+          <option value="all">All Tabs</option>
+          <option value="single">Single Tab</option>
+        </select>
+      </div>
+      <div>
+        <label for="tabSelect">Tab</label>
+        <select id="tabSelect" disabled></select>
+      </div>
+      <div>
+        <label for="typeFilter">Type Filter</label>
+        <select id="typeFilter">
+          <option value="all">All</option>
+          <option value="endpoints">Endpoints</option>
+          <option value="payloads">Payloads</option>
+        </select>
+      </div>
+      <div>
+        <label for="searchInput">Search</label>
+        <input id="searchInput" placeholder="value, source, tab, url" />
+      </div>
+      <div>
+        <label for="dedupeToggle">Dedupe</label>
+        <select id="dedupeToggle">
+          <option value="on">On</option>
+          <option value="off">Off</option>
+        </select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="rescanBtn">Rescan</button>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="secondary" id="exportCsvBtn">Export CSV</button>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="secondary" id="exportJsonBtn">Export JSON</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><span>Total findings</span><strong id="totalCount">0</strong></div>
+      <div class="stat"><span>Unique endpoints</span><strong id="endpointCount">0</strong></div>
+      <div class="stat"><span>Unique payloads</span><strong id="payloadCount">0</strong></div>
+      <div class="stat"><span>Duplicates filtered</span><strong id="dupeCount">0</strong></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <table class="table" id="resultsTable">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Value</th>
+          <th>Source</th>
+          <th>Tab</th>
+          <th>Page</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+    <div class="footer" id="footerNote">Updated just now.</div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
