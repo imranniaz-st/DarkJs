@@ -1,9 +1,94 @@
 <!DOCTYPE html>
 <html>
-<head><title>JS Scanner</title></head>
+<head>
+  <title>DarkJS</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 14px 14px 12px 14px;
+      width: 320px;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f1220;
+      color: #f6f3ea;
+    }
+    h2 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+      letter-spacing: 0.6px;
+    }
+    .sub {
+      color: #cbd3e1;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    select, button {
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #2a3151;
+      background: #151a2f;
+      color: #f6f3ea;
+      flex: 1;
+    }
+    button {
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    .card {
+      background: #151a2f;
+      border: 1px solid #2a3151;
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #242b47;
+      font-size: 12px;
+    }
+    .stat:last-child {
+      border-bottom: none;
+    }
+    .label {
+      color: #cbd3e1;
+    }
+    .value {
+      font-weight: 600;
+    }
+    .note {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #9aa5bd;
+    }
+  </style>
+</head>
 <body>
-  <h2>DarkJS </h2>
-  <p>Scan happens automatically when you load a page.</p>
-  <p>Open DevTools → Console to see results.</p>
+  <h2>DarkJS</h2>
+  <div class="sub">Stats for endpoints and payloads.</div>
+
+  <div class="row">
+    <select id="scopeSelect">
+      <option value="current">Current Tab</option>
+      <option value="all">All Tabs</option>
+    </select>
+    <button id="rescanBtn">Rescan</button>
+  </div>
+
+  <div class="card" id="statsCard">
+    <div class="stat"><span class="label">Total findings</span><span class="value" id="totalCount">0</span></div>
+    <div class="stat"><span class="label">Unique endpoints</span><span class="value" id="endpointCount">0</span></div>
+    <div class="stat"><span class="label">Unique payloads</span><span class="value" id="payloadCount">0</span></div>
+    <div class="stat"><span class="label">Duplicates filtered</span><span class="value" id="dupeCount">0</span></div>
+  </div>
+
+  <div class="note" id="note">Duplicates are filtered across all tabs in All Tabs view.</div>
+
+  <script src="popup.js"></script>
 </body>
 </html>
