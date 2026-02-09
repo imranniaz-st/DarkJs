@@ -1,0 +1,44 @@
+name: Chrome Extension CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate manifest.json
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest_path = Path("manifest.json")
+          data = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+          if data.get("manifest_version") != 3:
+            raise SystemExit("manifest_version must be 3")
+          if "name" not in data or "version" not in data:
+            raise SystemExit("manifest.json missing name or version")
+          if "permissions" not in data:
+            raise SystemExit("manifest.json missing permissions")
+
+          print("manifest.json OK")
+          PY
+
+      - name: Package extension
+        run: |
+          zip -r darkjs-extension.zip . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x ".gitignore"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: darkjs-extension
+          path: darkjs-extension.zip
