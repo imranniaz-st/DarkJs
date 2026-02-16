@@ -33,6 +33,16 @@ const repeatBody = document.getElementById("repeatBody");
 const repeatSendBtn = document.getElementById("repeatSendBtn");
 const repeatOutput = document.getElementById("repeatOutput");
 const siteMapBody = document.getElementById("siteMapBody");
+const toggleFindings = document.getElementById("toggleFindings");
+const toggleTraffic = document.getElementById("toggleTraffic");
+const toggleRepeater = document.getElementById("toggleRepeater");
+const toggleSiteMap = document.getElementById("toggleSiteMap");
+const toggleSettings = document.getElementById("toggleSettings");
+const findingsPanel = document.getElementById("findingsPanel");
+const trafficPanel = document.getElementById("trafficPanel");
+const repeaterPanel = document.getElementById("repeaterPanel");
+const siteMapPanel = document.getElementById("siteMapPanel");
+const settingsPanel = document.getElementById("settingsPanel");
 
 const totalCount = document.getElementById("totalCount");
 const endpointCount = document.getElementById("endpointCount");
@@ -45,6 +55,79 @@ let selectedTabIds = new Set();
 let latestTabs = [];
 let customInitialized = false;
 let lastTrafficRows = [];
+let panelState = {
+  findings: true,
+  traffic: true,
+  repeater: true,
+  siteMap: true,
+  settings: true
+};
+let currentSettings = {
+  allowlist: [],
+  denylist: []
+};
+
+function normalizePatterns(patterns) {
+  return (patterns || []).map(pattern => {
+    const escaped = String(pattern)
+      .trim()
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*");
+    return new RegExp(escaped, "i");
+  });
+}
+
+function resolveUrl(value, baseUrl) {
+  if (!value) return "";
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  try {
+    return new URL(value, baseUrl || "").href;
+  } catch {
+    return value;
+  }
+}
+
+function isAllowedValue(value, baseUrl) {
+  const target = resolveUrl(String(value || ""), baseUrl).toLowerCase();
+  const allowlist = normalizePatterns(currentSettings.allowlist);
+  const denylist = normalizePatterns(currentSettings.denylist);
+
+  if (allowlist.length && !allowlist.some(regex => regex.test(target))) {
+    return false;
+  }
+
+  if (denylist.some(regex => regex.test(target))) {
+    return false;
+  }
+
+  return true;
+}
+
+function applyPanelState() {
+  findingsPanel.hidden = !panelState.findings;
+  trafficPanel.hidden = !panelState.traffic;
+  repeaterPanel.hidden = !panelState.repeater;
+  siteMapPanel.hidden = !panelState.siteMap;
+  settingsPanel.hidden = !panelState.settings;
+
+  toggleFindings.checked = panelState.findings;
+  toggleTraffic.checked = panelState.traffic;
+  toggleRepeater.checked = panelState.repeater;
+  toggleSiteMap.checked = panelState.siteMap;
+  toggleSettings.checked = panelState.settings;
+}
+
+async function loadPanelState() {
+  const data = await chrome.storage.local.get("dashboardPanels");
+  if (data.dashboardPanels) {
+    panelState = { ...panelState, ...data.dashboardPanels };
+  }
+  applyPanelState();
+}
+
+async function savePanelState() {
+  await chrome.storage.local.set({ dashboardPanels: panelState });
+}
 
 function classify(findings) {
   const endpointSet = new Set();
@@ -370,6 +453,10 @@ function parsePatterns(value) {
 async function loadSettings() {
   const data = await chrome.storage.local.get("settings");
   const settings = data.settings || {};
+  currentSettings = {
+    allowlist: settings.allowlist || [],
+    denylist: settings.denylist || []
+  };
 
   enableDom.value = settings.enableDom === false ? "off" : "on";
   enableStorage.value = settings.enableStorage === false ? "off" : "on";
@@ -393,8 +480,14 @@ async function saveSettings() {
     denylist: parsePatterns(denylistInput.value)
   };
 
+  currentSettings = {
+    allowlist: settings.allowlist,
+    denylist: settings.denylist
+  };
+
   await chrome.storage.local.set({ settings });
   updateStatus("Saved");
+  loadDashboard();
 }
 
 function buildCsv(rows) {
@@ -454,8 +547,15 @@ async function loadDashboard() {
   }
 
   const records = await getTabRecords(tabIds);
-  const flattened = flattenRecords(records, tabLookup);
-  const trafficRows = flattenTraffic(records);
+  const flattened = flattenRecords(records, tabLookup).filter(item => {
+    if (item.type === "URL" || item.type === "API Endpoint" || item.type === "Route") {
+      return isAllowedValue(item.value, item.pageUrl);
+    }
+    return true;
+  });
+  const trafficRows = (panelState.traffic || panelState.siteMap)
+    ? flattenTraffic(records).filter(item => isAllowedValue(item.url, ""))
+    : [];
 
   const filter = typeFilter.value;
   const searchTerm = searchInput.value.trim();
@@ -470,26 +570,35 @@ async function loadDashboard() {
   payloadCount.textContent = String(stats.payloads);
   dupeCount.textContent = String(statsWithDupes.dupes);
 
-  renderTable(deduped);
-  const filteredTraffic = trafficRows.filter(item => {
-    const methodFilter = trafficMethod.value;
-    if (methodFilter !== "all" && item.method !== methodFilter) return false;
+  lastRenderedRows = deduped;
+  if (panelState.findings) {
+    renderTable(deduped);
+  }
 
-    const typeFilterValue = trafficType.value;
-    if (typeFilterValue !== "all" && normalizeType(item.type) !== typeFilterValue) return false;
+  if (panelState.traffic) {
+    const filteredTraffic = trafficRows.filter(item => {
+      const methodFilter = trafficMethod.value;
+      if (methodFilter !== "all" && item.method !== methodFilter) return false;
 
-    if (!matchesStatusFilter(item.status, trafficStatus.value)) return false;
+      const typeFilterValue = trafficType.value;
+      if (typeFilterValue !== "all" && normalizeType(item.type) !== typeFilterValue) return false;
 
-    const needle = trafficSearch.value.trim().toLowerCase();
-    if (needle) {
-      const hay = `${item.url} ${item.method} ${item.status} ${item.type}`.toLowerCase();
-      if (!hay.includes(needle)) return false;
-    }
-    return true;
-  });
+      if (!matchesStatusFilter(item.status, trafficStatus.value)) return false;
 
-  renderTraffic(filteredTraffic);
-  renderSiteMap(buildSiteMap(trafficRows, deduped));
+      const needle = trafficSearch.value.trim().toLowerCase();
+      if (needle) {
+        const hay = `${item.url} ${item.method} ${item.status} ${item.type}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    });
+
+    renderTraffic(filteredTraffic);
+  }
+
+  if (panelState.siteMap) {
+    renderSiteMap(buildSiteMap(trafficRows, deduped));
+  }
   footerNote.textContent = `Updated ${new Date().toLocaleTimeString()}.`;
   updateStatus("Ready");
 }
@@ -580,6 +689,34 @@ trafficSearch.addEventListener("input", loadDashboard);
 trafficMethod.addEventListener("change", loadDashboard);
 trafficStatus.addEventListener("change", loadDashboard);
 trafficType.addEventListener("change", loadDashboard);
+toggleFindings.addEventListener("change", () => {
+  panelState.findings = toggleFindings.checked;
+  applyPanelState();
+  savePanelState();
+  loadDashboard();
+});
+toggleTraffic.addEventListener("change", () => {
+  panelState.traffic = toggleTraffic.checked;
+  applyPanelState();
+  savePanelState();
+  loadDashboard();
+});
+toggleRepeater.addEventListener("change", () => {
+  panelState.repeater = toggleRepeater.checked;
+  applyPanelState();
+  savePanelState();
+});
+toggleSiteMap.addEventListener("change", () => {
+  panelState.siteMap = toggleSiteMap.checked;
+  applyPanelState();
+  savePanelState();
+  loadDashboard();
+});
+toggleSettings.addEventListener("change", () => {
+  panelState.settings = toggleSettings.checked;
+  applyPanelState();
+  savePanelState();
+});
 selectAllTabsBtn.addEventListener("click", () => {
   selectedTabIds = new Set(latestTabs.map(tab => tab.id).filter(Boolean));
   loadDashboard();
@@ -629,4 +766,4 @@ repeatSendBtn.addEventListener("click", async () => {
   }
 });
 
-loadSettings().then(loadDashboard);
+loadPanelState().then(() => loadSettings().then(loadDashboard));

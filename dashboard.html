@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>DarkJS Dashboard</title>
+  <title>Lite Pentest Tools  Dashboard</title>
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap");
 
     :root {
-      --bg-1: #0f1218;
-      --bg-2: #161b24;
-      --card: #1c212c;
-      --card-2: #232b38;
+      --bg-1: #536a98;
+      --bg-2: #5025a8;
+      --card: #14213d;
+      --card-2: #0e49a9;
       --ink: #f6f1ea;
       --muted: #b1b8c6;
       --accent: #ff2d20;
@@ -253,6 +253,29 @@
       margin-bottom: 12px;
     }
 
+    .section-toggle {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .section-toggle label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .section-toggle input {
+      width: auto;
+      margin: 0;
+    }
+
     .repeater-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -286,6 +309,9 @@
       .repeater-grid {
         grid-template-columns: 1fr;
       }
+      .section-toggle {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 600px) {
@@ -306,6 +332,9 @@
       .traffic-controls {
         grid-template-columns: 1fr;
       }
+      .section-toggle {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -318,7 +347,17 @@
     <div class="pill" id="statusPill">Idle</div>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="sectionPanel">
+    <div class="section-toggle">
+      <label><input type="checkbox" id="toggleFindings" checked />Findings</label>
+      <label><input type="checkbox" id="toggleTraffic" checked />Traffic</label>
+      <label><input type="checkbox" id="toggleRepeater" checked />Repeater</label>
+      <label><input type="checkbox" id="toggleSiteMap" checked />Site Map</label>
+      <label><input type="checkbox" id="toggleSettings" checked />Settings</label>
+    </div>
+  </div>
+
+  <div class="panel" id="settingsPanel">
     <div class="traffic-controls">
       <div>
         <label for="trafficSearch">Traffic search</label>
@@ -375,7 +414,7 @@
     </table>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="findingsPanel">
     <div class="repeater-grid">
       <div>
         <label for="repeatMethod">Method</label>
@@ -407,7 +446,7 @@
     <div class="repeater-output" id="repeatOutput">Awaiting request.</div>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="trafficPanel">
     <table class="table" id="siteMapTable">
       <thead>
         <tr>
@@ -420,7 +459,7 @@
     </table>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="repeaterPanel">
     <div class="controls">
       <div>
         <label for="scopeSelect">Scope</label>
@@ -484,7 +523,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="siteMapPanel">
     <div class="controls">
       <div>
         <label for="enableDom">DOM Scan</label>
@@ -533,8 +572,8 @@
         <textarea id="allowlistInput" placeholder="api.example.com, *.service.local"></textarea>
       </div>
       <div>
-        <label for="denylistInput">Denylist patterns</label>
-        <textarea id="denylistInput" placeholder="*.ads.example.com, tracker"></textarea>
+        <label for="denylistInput">Out of scope URLs</label>
+        <textarea id="denylistInput" placeholder="*.ads.example.com, tracker, /logout"></textarea>
       </div>
       <div>
         <label>Pattern tips</label>

@@ -9,7 +9,39 @@ const DEFAULT_SETTINGS = {
   allowlist: [],
   denylist: []
 };
+ 
+const IDOR_PATTERNS = [
+  /\b(user|account|profile|customer|client|member|order|invoice|project|tenant|org|organization|company|team)[_-]?(id|uuid)\b/gi,
+  /\/(users|accounts|profiles|customers|clients|members|orders|invoices|projects|tenants|orgs|organizations|companies|teams)\/\d{1,18}\b/gi,
+  /[?&](user|account|profile|customer|client|member|order|invoice|project|tenant|org|organization|company|team)[_-]?id=\d{1,18}\b/gi,
+  /[?&](user|account|profile|customer|client|member|order|invoice|project|tenant|org|organization|company|team)[_-]?id=[0-9a-f]{8,}\b/gi,
+  /"?(user|account|profile|customer|client|member|order|invoice|project|tenant|org|organization|company|team)[_-]?(id|uuid)"?\s*:\s*["']?[0-9a-f]{6,}["']?/gi
+];
 
+function scanIdorAndExposedFunctions(text, source, findings) {
+  IDOR_PATTERNS.forEach(pattern => {
+    const matches = text.match(pattern) || [];
+    matches.forEach(match => findings.push(["IDOR Indicator", match.trim(), source]));
+  });
+
+  if (typeof FUNCTION_EXPOSE !== "undefined") {
+    FUNCTION_EXPOSE.forEach(pattern => {
+      const matches = text.match(pattern) || [];
+      matches.forEach(match => findings.push(["Exposed Function", match.trim(), source]));
+    });
+  }
+}
+
+const FUNCTION_EXPOSE = [
+ // chack if function expose something for websiet in js file 
+/window\.[A-Za-z_$][\w$]*\s*=\s*function\b/gi,
+/window\.[A-Za-z_$][\w$]*\s*=\s*\([^\)]*\)\s*=>/gi,
+/globalThis\.[A-Za-z_$][\w$]*\s*=\s*function\b/gi,
+/globalThis\.[A-Za-z_$][\w$]*\s*=\s*\([^\)]*\)\s*=>/gi,
+/(?:var|let|const)\s+[A-Za-z_$][\w$]*\s*=\s*function\b/gi,
+/(?:var|let|const)\s+[A-Za-z_$][\w$]*\s*=\s*\([^\)]*\)\s*=>/gi
+
+];
 const KEY_PATTERNS = [
   /\b(api[_-]?key|apikey|secret|token|auth[_-]?token|access[_-]?token)\b\s*[:=]\s*["']?[A-Za-z0-9_\-\.]{8,}["']?/gi,
   /AWS[_-]?ACCESS[_-]?KEY[_-]?ID\s*[:=]\s*["']?AKIA[0-9A-Z]{16}["']?/g,
@@ -347,7 +379,8 @@ async function runScanOnTab(tabId) {
         /AIza[0-9A-Za-z\-_]{35}/g,
         /-----BEGIN PRIVATE KEY-----[\s\S]+?-----END PRIVATE KEY-----/g,
         /heroku[a-z0-9]{32}/g,
-        /\b(?:[A-Za-z0-9+\/]{40,}={0,2})\b/g
+        /\b(?:[A-Za-z0-9+\/]{40,}={0,2})\b/g,
+        /(\/rust_api\/|\/v\d+\/|api)/i
       ];
 
       const extraPatterns = [
